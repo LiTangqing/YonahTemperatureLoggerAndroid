@@ -12,6 +12,12 @@ import android.os.Bundle;
 import android.util.Log;
 import android.widget.TextView;
 
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.StringRequest;
 import com.felhr.usbserial.UsbSerialDevice;
 import com.felhr.usbserial.UsbSerialInterface;
 
@@ -28,12 +34,20 @@ import android.app.Activity;
 import android.view.View;
 import android.widget.Button;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import im.delight.android.location.SimpleLocation;
 
 public class MainActivity extends Activity {
     public final String ACTION_USB_PERMISSION = "sg.yonah.serialmanager.USB_PERMISSION";
+    public final String POSTURL = "http://128.199.202.243/api/trip/";
     Button startButton, clearButton ;
-    TextView textView, tvLocation;
+    TextView tvConnectivity, tvLocation,tvLog, tvResponse;
+    JSONObject logJsonBody;
+    JSONObject tripJsonBody;
+    JSONArray logJsonArray;
 
     //serial var
     UsbManager usbManager;
@@ -44,36 +58,86 @@ public class MainActivity extends Activity {
     //location var
     private SimpleLocation location;
 
+
     UsbSerialInterface.UsbReadCallback mCallback = new UsbSerialInterface.UsbReadCallback() {
         @Override
         public void onReceivedData(byte[] arg0) {
             String data;
             String toSend;
-            String tripSignal = "";
+            String boxSignal = "";
 
             try {
                 data = new String(arg0, "UTF-8");
+                String currTime = getTime();
 
-                if (data.contains("??")){
-                    tripSignal = "Arrival at Lat:"+ Double.toString(location.getLatitude())+", Long: "+Double.toString(location.getLongitude())+"\n";
-                    tripSignal = "ARRIVAL";
-                    tvAppend(textView,tripSignal);
-                    //send sms.  how to get receipient?
+                //send back log to arduino, w timestamp tagged
+                if (data.length() > 7){
+                    //reason why check length larger than 7:
+                    toSend = data+ "    "+ currTime +"    "+'\n';
+                    serialPort.write(toSend.getBytes());
 
-                }else if(data.contains("!!")) {
-                    tripSignal = "Departure at Lat:"+ Double.toString(location.getLatitude())+", Long: "+Double.toString(location.getLongitude())+"\n";
-                    tripSignal = "DEPART";
-                    tvAppend(textView,tripSignal);
+                    String temp = data.split(":")[1];
+                    logJsonBody.put("time",currTime);
+                    logJsonBody.put("temp",temp);
+
+
+                    //extra check for box activity
+                    if (data.contains("??")){
+                        //box open
+                        //update ui
+                        boxSignal = "Box opened at Lat:"+ Double.toString(location.getLatitude())+", Long: "+Double.toString(location.getLongitude())+"\n";
+                        tvAppend(tvLocation,boxSignal);
+
+                        //update json body
+                        logJsonBody.put("box_activity",boxSignal);
+                        logJsonArray.put(logJsonBody);
+
+                        tripJsonBody.put("lati_boxopen",Double.toString(location.getLatitude()));
+                        tripJsonBody.put("longi_boxopen",Double.toString(location.getLongitude()));
+                        tripJsonBody.put("logs",logJsonArray);
+
+                        //formulate POST request and add to request queue
+                        JsonObjectRequest jsObjRequest = new JsonObjectRequest
+                                (Request.Method.POST, POSTURL, tripJsonBody, new Response.Listener<JSONObject>() {
+
+                                    @Override
+                                    public void onResponse(JSONObject response) {
+                                        tvResponse.setText("Response: " + response.toString());
+                                    }
+                                }, new Response.ErrorListener() {
+
+                                    @Override
+                                    public void onErrorResponse(VolleyError error) {
+                                        // TODO Auto-generated method stub
+                                    }
+                                });
+
+                        Singleton.getInstance(getApplicationContext()).addToRequestQueue(jsObjRequest);
+
+                    }else if(data.contains("!!")) {
+                        //box closes
+                        //update ui
+                        tvUpdate(tvLog,data);
+                        boxSignal = "Box closed at Lat:"+ Double.toString(location.getLatitude())+", Long: "+Double.toString(location.getLongitude())+"\n";
+                        tvAppend(tvLocation,boxSignal);
+                        // log down
+                        logJsonBody.put("box_activity",boxSignal);
+                        logJsonArray.put(logJsonBody);
+
+                    } else{
+                        logJsonArray.put(logJsonBody);
+                        tvUpdate(tvLog,data);
+                    }
+
                 }
-//                toSend = tripSignal + getTime();
-//                toSend.concat(" = ");
-                if (data.length()>5){
-                    toSend = data+ "    "+ getTime() +"    "+tripSignal+'\n' ;
+
+                //send back box activity also if there any (with geolocation tagged)
+                if (boxSignal!=""){
+                    toSend = boxSignal+"\n";
                     serialPort.write(toSend.getBytes());
                 }
 
-//                serialPort.write(arg0);
-            } catch (UnsupportedEncodingException e) {
+            } catch (UnsupportedEncodingException | JSONException e) {
                 e.printStackTrace();
             }
         }
@@ -98,7 +162,7 @@ public class MainActivity extends Activity {
                             serialPort.setParity(UsbSerialInterface.PARITY_NONE);
                             serialPort.setFlowControl(UsbSerialInterface.FLOW_CONTROL_OFF);
                             serialPort.read(mCallback);
-                            tvAppend(textView,"Serial Connection Opened!\n");
+                            tvUpdate(tvConnectivity,"Serial Connection Opened!\n");
 
                         } else {
                             Log.d("SERIAL", "PORT NOT OPEN");
@@ -123,11 +187,13 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        //ui related
+        //ui－related
         startButton = (Button) findViewById(R.id.buttonStart);
         clearButton = (Button) findViewById(R.id.buttonClear);
-        textView = (TextView) findViewById(R.id.textView);
+        tvLog = (TextView) findViewById(R.id.tvLog);
         tvLocation = (TextView) findViewById(R.id.tvLocation);
+        tvConnectivity = (TextView) findViewById(R.id.tvConnectivity);
+        tvResponse = (TextView)findViewById(R.id.tvResponse);
 
         //location var
         location = new SimpleLocation(this);
@@ -139,6 +205,13 @@ public class MainActivity extends Activity {
         // start motion control service(vibrate when phone leans)
         startService(new Intent(this,MotionControlService.class));
 
+        //request queue n jsonbody
+        logJsonBody = new JSONObject();
+        tripJsonBody = new JSONObject();
+        logJsonArray = new JSONArray();
+        RequestQueue queue = Singleton.getInstance(getApplicationContext()).
+                getRequestQueue();
+
         // serial communication
         usbManager = (UsbManager) getSystemService(this.USB_SERVICE);
         IntentFilter filter = new IntentFilter();
@@ -146,6 +219,8 @@ public class MainActivity extends Activity {
         filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
         filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
         registerReceiver(broadcastReceiver, filter);
+
+        //start
         startButton.performClick();
     }
 
@@ -184,7 +259,9 @@ public class MainActivity extends Activity {
 //    }
 
     public void onClickClear(View view) {
-        textView.setText(" ");
+        tvLog.setText(" ");
+        tvConnectivity.setText(" ");
+        tvLocation.setText(" ");
     }
 
     private void tvAppend(TextView tv, CharSequence text) {
@@ -195,6 +272,18 @@ public class MainActivity extends Activity {
             @Override
             public void run() {
                 ftv.append(ftext);
+            }
+        });
+    }
+
+    private void tvUpdate(TextView tv, String text) {
+        final TextView ftv = tv;
+        final String ftext = text;
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                ftv.setText(ftext);
             }
         });
     }
