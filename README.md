@@ -43,4 +43,4 @@ Main functionalities:
 
 **More**
 --------
-This project is created as part of [Yonah](www.yonah.sg)'s UAV delivery Service.
+This project is initiated as part of [Yonah](www.yonah.sg)'s UAV delivery Service.
