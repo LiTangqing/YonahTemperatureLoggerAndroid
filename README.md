@@ -26,12 +26,12 @@ Hardware comprises:
 The software system comprises: 
 1. An android phone App that has the following 
 Main functionalities:
-- communicates with microprocessor (with wifi module) via UDP 
+- communicates with microprocessor (serial communication)
 - fetchs temeperature data from microprocessor
 - tags incoming data point with current time stamp and send back to microprocessor
-- checks geolacation and auto sends out SMS to receiver when system approaching destiantion 
-- generates basic statistics summary(for temperature data) upon arrival(send through sms)
-- uploads data entries to remote server(currently working in progress)
+- determine geolacation upon opening/closing vacccine box 
+- vibrate when phone is not facing up 
+- uploads data entries to remote server 
 
 *App Program Work flow*
 ![Android Program Work Flow](https://github.com/LiTangqing/YonahTemperatureLoggerAndroid/blob/master/images/app_programflow.png)
