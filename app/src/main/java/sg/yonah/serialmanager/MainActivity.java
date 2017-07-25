@@ -58,7 +58,7 @@ public class MainActivity extends Activity {
     //location var
     private SimpleLocation location;
 
-
+    //call back one receive serial packet
     UsbSerialInterface.UsbReadCallback mCallback = new UsbSerialInterface.UsbReadCallback() {
         @Override
         public void onReceivedData(byte[] arg0) {
@@ -72,14 +72,18 @@ public class MainActivity extends Activity {
 
                 //send back log to arduino, w timestamp tagged
                 if (data.length() > 7){
-                    //reason why check length larger than 7:
+                    /*
+                    reason why check length larger than 7: we observe some msg received might be broken
+                    e.g. only receive half of msg
+                    thus check for complete msg here
+                    */
+
                     toSend = data+ "    "+ currTime +"    "+'\n';
                     serialPort.write(toSend.getBytes());
 
                     String temp = data.split(":")[1];
                     logJsonBody.put("time",currTime);
                     logJsonBody.put("temp",temp);
-
 
                     //extra check for box activity
                     if (data.contains("??")){
@@ -120,6 +124,7 @@ public class MainActivity extends Activity {
                         tvUpdate(tvLog,data);
                         boxSignal = "Box closed at Lat:"+ Double.toString(location.getLatitude())+", Long: "+Double.toString(location.getLongitude())+"\n";
                         tvAppend(tvLocation,boxSignal);
+
                         // log down
                         logJsonBody.put("box_activity",boxSignal);
                         logJsonArray.put(logJsonBody);
@@ -128,7 +133,6 @@ public class MainActivity extends Activity {
                         logJsonArray.put(logJsonBody);
                         tvUpdate(tvLog,data);
                     }
-
                 }
 
                 //send back box activity also if there any (with geolocation tagged)
@@ -296,14 +300,6 @@ public class MainActivity extends Activity {
         date.setTimeZone(TimeZone.getTimeZone("GMT+8:00"));   // specify time zone here
         return date.format(currentLocalTime);
     }
-
-//    public String getLocation(SimpleLocation location){
-//        String result = "lat: ";
-//        result+=String.valueOf(location.getLatitude());
-//        result+= ",long:";
-//        result+=String.valueOf(location.getLongitude());
-//        return result;
-//    }
 
     @Override
     protected void onResume() {
