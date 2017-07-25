@@ -1,20 +1,25 @@
-Yonah CoolerMan 
-===============
+Yonah Temperature Logger System 
+===============================
 
 **What Is This For**
 --------------------
-A Temperature Logging System for cold chain logistics. This project will serve as the temperature logging system for Yonah's UAV vaccine delivery in Papua New Guinea.
+A Temperature Logging System for cold chain logistics. This project will serve as the temperature logging system for Yonah's UAV vaccine delivery service in Papua New Guinea.
 
 **Hardware and System diagram**
 -------------------------------
 Hardware comprises: 
 - smartphone
 - microprocessor (arduino)
-- wifi module (esp8266)
-- temperature sensor (tmp102)
+- temperature sensor (DS18B20)
+- lux sensor (TEMT6000)
+- votage converter 
 - SD card
 
-![System Diagram](https://github.com/LiTangqing/YonahCoolerMan/blob/master/System_Diagram.png)
+*System Overview*
+![System Diagram](https://github.com/LiTangqing/YonahTemperatureLoggerAndroid/blob/master/images/system_diagram.png)
+
+*Board Schematics*
+![Board Schematics](https://github.com/LiTangqing/YonahTemperatureLoggerAndroid/blob/master/images/schematics.png)
 
 **Software**
 ------------
@@ -28,8 +33,12 @@ Main functionalities:
 - generates basic statistics summary(for temperature data) upon arrival(send through sms)
 - uploads data entries to remote server(currently working in progress)
 
+*App Program Work flow*
+![Android Program Work Flow](https://github.com/LiTangqing/YonahTemperatureLoggerAndroid/blob/master/images/app_programflow.png)
+
 2. Script for microprocessor board(Arduino)
 - get temeperature data 
+- constantly check for light signal and determine if box is opened
 - write to SD card 
 
 **More**
